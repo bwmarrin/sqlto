@@ -7,38 +7,36 @@ import (
 )
 
 func (s *SQLto) CSV(w io.Writer) error {
-
 	var err error
 
-	colNames, err := s.Rows.Columns()
+	cols, err := s.Rows.ColumnTypes()
 	if err != nil {
-		return fmt.Errorf("error fetching column names, %s\n", err)
+		return fmt.Errorf("error fetching column types, %s\n", err)
 	}
-	length := len(colNames)
+	colsLen := len(cols)
 
-	pointers := make([]interface{}, length)
-	container := make([]interface{}, length)
-	for i := range pointers {
-		pointers[i] = &container[i]
+	values := make([]interface{}, colsLen)
+	for i := range values {
+		values[i] = &GenericScanner{dbtype: cols[i].DatabaseTypeName()}
 	}
 
 	delim := ""
-	for _, v := range colNames {
-		fmt.Fprintf(w, `%s"%v"`, delim, v)
+	for _, v := range cols {
+		fmt.Fprintf(w, `%s"%v"`, delim, v.Name())
 		delim = ","
 	}
 	fmt.Fprintf(w, "\r\n")
 
 	for s.Rows.Next() {
 
-		err = s.Rows.Scan(pointers...)
+		err = s.Rows.Scan(values...)
 		if err != nil {
 			return fmt.Errorf("error scanning sql row, %s\n", err)
 		}
 
 		delim := ""
 
-		for _, v := range container {
+		for _, v := range values {
 
 			if v == nil {
 				fmt.Fprintf(w, `%s""`, delim)

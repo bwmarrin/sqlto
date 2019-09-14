@@ -2,6 +2,7 @@ package sqlto
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 )
 
@@ -18,6 +19,15 @@ type GenericScanner struct {
 	want   string
 }
 
+func (scanner *GenericScanner) String() string {
+	switch scanner.value.(type) {
+	case []byte:
+		return string(scanner.value.([]byte))
+	default:
+		return fmt.Sprintf("%v", scanner.value)
+
+	}
+}
 func (scanner *GenericScanner) MarshalJSON() ([]byte, error) {
 	return json.Marshal(scanner.value)
 }
