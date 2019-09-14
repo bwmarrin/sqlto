@@ -8,38 +8,37 @@ import (
 func (s *SQLto) HTML(w io.Writer) error {
 	var err error
 
-	colNames, err := s.Rows.Columns()
+	cols, err := s.Rows.ColumnTypes()
 	if err != nil {
-		return fmt.Errorf("error fetching column names, %s\n", err)
+		return fmt.Errorf("error fetching column types, %s\n", err)
 	}
-	length := len(colNames)
+	colsLen := len(cols)
 
-	pointers := make([]interface{}, length)
-	container := make([]interface{}, length)
-	for i := range pointers {
-		pointers[i] = &container[i]
+	values := make([]interface{}, colsLen)
+	for i := range values {
+		values[i] = &GenericScanner{dbtype: cols[i].DatabaseTypeName()}
 	}
 
 	fmt.Fprintf(w, `<table>`)
 	fmt.Fprintf(w, "<tr>")
-	for _, v := range colNames {
-		fmt.Fprintf(w, "<th>%s</th>", v)
+	for _, v := range cols {
+		fmt.Fprintf(w, "<th>%s</th>", v.Name())
 	}
 	fmt.Fprintf(w, "</tr>\r\n")
 
 	for s.Rows.Next() {
 		fmt.Fprintf(w, "<tr>")
-		err := s.Rows.Scan(pointers...)
+		err := s.Rows.Scan(values...)
 		if err != nil {
 			fmt.Println("Failed to scan row", err)
 			return err
 		}
 
-		for _, v := range container {
+		for _, v := range values {
 			if v == nil {
 				fmt.Fprintf(w, "<td></td>")
 			} else {
-				fmt.Fprintf(w, "<td>%s</td>", v)
+				fmt.Fprintf(w, "<td>%v</td>", v)
 			}
 		}
 		fmt.Fprintf(w, "</tr>\r\n")
