@@ -8,29 +8,27 @@ import (
 func (s *SQLto) String(w io.Writer) error {
 	var err error
 
-	// XXX: don't really need col names here
-	colNames, err := s.Rows.Columns()
+	cols, err := s.Rows.ColumnTypes()
 	if err != nil {
-		return fmt.Errorf("error fetching column names, %s\n", err)
+		return fmt.Errorf("error fetching column types, %s\n", err)
 	}
-	length := len(colNames)
+	colsLen := len(cols)
 
-	pointers := make([]interface{}, length)
-	container := make([]interface{}, length)
-	for i := range pointers {
-		pointers[i] = &container[i]
+	values := make([]interface{}, colsLen)
+	for i := range values {
+		values[i] = &GenericScanner{dbtype: cols[i].DatabaseTypeName()}
 	}
 
 	for s.Rows.Next() {
-		err := s.Rows.Scan(pointers...)
+		err := s.Rows.Scan(values...)
 		if err != nil {
 			return err
 		}
 
-		for _, v := range container {
+		for _, v := range values {
 			if v == nil {
 			} else {
-				fmt.Fprintf(w, "%s", v)
+				fmt.Fprintf(w, "%v", v)
 			}
 		}
 	}

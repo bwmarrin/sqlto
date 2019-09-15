@@ -1,7 +1,6 @@
 package sqlto
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
@@ -9,31 +8,17 @@ import (
 )
 
 func (s *SQLto) Excel(w io.Writer) error {
-	if s == nil {
-		return errors.New("SQLto is nil")
-	}
-
-	if s.Rows == nil {
-		return errors.New("SQL Rows is nil")
-	}
-
 	var err error
 
-	colTypes, err := s.Rows.ColumnTypes()
+	cols, err := s.Rows.ColumnTypes()
 	if err != nil {
-		return fmt.Errorf("error fetching column types, %s", err)
+		return fmt.Errorf("error fetching column types, %s\n", err)
 	}
+	colsLen := len(cols)
 
-	colNames, err := s.Rows.Columns()
-	if err != nil {
-		return fmt.Errorf("error fetching column names, %s\n", err)
-	}
-	length := len(colNames)
-
-	pointers := make([]interface{}, length)
-	container := make([]interface{}, length)
-	for i := range pointers {
-		pointers[i] = &container[i]
+	values := make([]interface{}, colsLen)
+	for i := range values {
+		values[i] = &GenericScanner{dbtype: cols[i].DatabaseTypeName()}
 	}
 
 	xfile := xlsx.NewFile()
@@ -42,36 +27,27 @@ func (s *SQLto) Excel(w io.Writer) error {
 		return fmt.Errorf("error adding sheet to xlsx file, %s\n", err)
 	}
 
+	colNames, err := s.Rows.Columns()
+	if err != nil {
+		return fmt.Errorf("error fetching column names, %s\n", err)
+	}
 	xrow := xsheet.AddRow()
 	xrow.WriteSlice(&colNames, -1)
 
 	for s.Rows.Next() {
 
-		err = s.Rows.Scan(pointers...)
+		err = s.Rows.Scan(values...)
 		if err != nil {
 			return fmt.Errorf("error scanning sql row, %s\n", err)
 		}
 
 		xrow = xsheet.AddRow()
 
-		for k, v := range container {
+		for _, v := range values {
 
 			xcell := xrow.AddCell()
 
-			ct := colTypes[k].DatabaseTypeName()
-			switch ct {
-			case `SQLT_NUM`:
-				fallthrough
-			case `INT`:
-				fallthrough
-			case `DECIMAL`:
-				fallthrough
-			case `TINYINT`:
-				xcell.SetNumeric(fmt.Sprintf("%s", v))
-				break
-			default:
-				xcell.SetValue(v)
-			}
+			xcell.SetValue(v)
 
 		}
 
